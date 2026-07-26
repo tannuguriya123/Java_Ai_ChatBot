@@ -1,2 +1,9 @@
-devPilot/backend/src/main/resources/application.properties
-devPilot/backend/src/main/resources/application.properties
+# Secrets and local env files
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local Spring overrides
+devPilot/backend/src/main/resources/application-local.properties
