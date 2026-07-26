@@ -1,4 +1,0 @@
-devPilot/backend/src/main/resources/application.properties
-
-# devPilot is its own git repo (monorepo with backend + client)
-devPilot/
