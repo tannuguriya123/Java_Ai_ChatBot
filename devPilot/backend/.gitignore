@@ -34,3 +34,4 @@ build/
 
 ### Local overrides ###
 application-local.properties
+.env
