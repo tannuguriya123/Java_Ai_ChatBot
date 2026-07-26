@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   title: "DevPilot — Chat with your codebase",
   description:
     "Connect GitHub, index a repository, and ask anything about your code.",
+  icons: {
+    icon: "/devpilot-icon.svg",
+    apple: "/devpilot-icon.svg",
+  },
 };
 
 export default function RootLayout({

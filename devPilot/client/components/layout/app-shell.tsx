@@ -2,12 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  FolderGit2,
-  LogOut,
-  MessageSquareCode,
-  Settings,
-} from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+
+import { DevPilotIcon } from "@/components/icons/devpilot-icon";
 
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useCurrentUser, useLogout } from "@/hooks/use-auth";
@@ -73,9 +70,7 @@ export function AppShell({
                 render={<Link href="/dashboard" />}
                 tooltip="DevPilot"
               >
-                <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <MessageSquareCode className="size-4" />
-                </div>
+                <DevPilotIcon className="size-8 rounded-[10px]" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">DevPilot</span>
                   <span className="truncate text-xs text-muted-foreground">
@@ -218,14 +213,12 @@ export function BrandMark({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 font-semibold tracking-tight",
+        "flex items-center gap-2.5 font-semibold tracking-tight",
         className
       )}
     >
-      <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <FolderGit2 className="size-4" />
-      </div>
-      DevPilot
+      <DevPilotIcon className="size-8 rounded-[10px]" />
+      <span className="font-heading text-[1.05rem] leading-none">DevPilot</span>
     </div>
   );
 }

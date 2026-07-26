@@ -1,11 +1,7 @@
 import Link from "next/link";
-import {
-  FolderGit2,
-  MessageSquareCode,
-  Sparkles,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight, FolderGit2, MessageSquareCode, Sparkles } from "lucide-react";
 
+import { DevPilotIcon } from "@/components/icons/devpilot-icon";
 import { BrandMark } from "@/components/layout/app-shell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { buttonVariants } from "@/components/ui/button";
@@ -31,8 +27,8 @@ export default function HomePage() {
 
       <main className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-16 px-4 py-16 md:py-24">
         <section className="mx-auto max-w-2xl space-y-6 text-center">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
-            <MessageSquareCode className="size-7" />
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl shadow-sm">
+            <DevPilotIcon className="size-14 rounded-2xl" />
           </div>
           <div className="space-y-3">
             <h1 className="font-heading text-4xl font-semibold tracking-tight sm:text-5xl">
