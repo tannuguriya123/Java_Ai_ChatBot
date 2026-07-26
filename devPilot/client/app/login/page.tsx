@@ -3,16 +3,32 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import { AlertCircle, FolderGit2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
+import { GitHubIcon } from "@/components/icons/github-icon";
 import { BrandMark } from "@/components/layout/app-shell";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useCurrentUser } from "@/hooks/use-auth";
 import { getGitHubLoginUrl } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+function LoginLoading() {
+  return (
+    <div className="flex min-h-svh items-center justify-center">
+      <Spinner className="size-6" />
+    </div>
+  );
+}
 
 function LoginContent() {
   const params = useSearchParams();
@@ -27,25 +43,14 @@ function LoginContent() {
     }
   }, [user, isLoading, next, router]);
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Spinner className="size-6" />
-      </div>
-    );
-  }
-
-  if (user) {
-    return (
-      <div className="flex min-h-svh items-center justify-center">
-        <Spinner className="size-6" />
-      </div>
-    );
+  if (isLoading || user) {
+    return <LoginLoading />;
   }
 
   return (
-    <div className="relative flex min-h-svh flex-col">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(from_var(--primary)_l_c_h/0.1),transparent_50%)]" />
+    <div className="relative flex min-h-svh flex-col overflow-hidden bg-background">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,oklch(from_var(--primary)_l_c_h/0.1),transparent_55%)]" />
+
       <header className="relative z-10 flex h-14 items-center justify-between px-4">
         <Link href="/">
           <BrandMark />
@@ -54,42 +59,40 @@ function LoginContent() {
       </header>
 
       <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-sm">
-          <div className="mb-6 space-y-2 text-center">
-            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-              <FolderGit2 className="size-6" />
+        <Card className="w-full max-w-sm border-border/70 bg-card/90 shadow-lg shadow-foreground/5 backdrop-blur-xl">
+          <CardHeader className="space-y-4 text-center">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-foreground text-background">
+              <GitHubIcon className="size-6" />
             </div>
-            <h1 className="font-heading text-xl font-semibold">Sign in to DevPilot</h1>
-            <p className="text-sm text-muted-foreground">
-              Use GitHub to access your public and private repositories.
-            </p>
-          </div>
+            <div className="space-y-1">
+              <CardTitle className="text-xl">Sign in</CardTitle>
+              <CardDescription>
+                Connect GitHub to chat with your repositories.
+              </CardDescription>
+            </div>
+          </CardHeader>
 
-          <div className="space-y-4">
+          <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle />
-                <AlertTitle>Authentication failed</AlertTitle>
-                <AlertDescription>
-                  Could not complete GitHub sign-in ({error}). Please try again.
-                </AlertDescription>
+                <AlertTitle>Sign-in failed</AlertTitle>
+                <AlertDescription>Please try again.</AlertDescription>
               </Alert>
             )}
+
             <a
               href={getGitHubLoginUrl()}
               className={cn(
                 buttonVariants({ size: "lg" }),
-                "inline-flex w-full items-center justify-center gap-1.5"
+                "inline-flex w-full items-center justify-center gap-2 bg-foreground text-background hover:bg-foreground/90"
               )}
             >
-              <FolderGit2 className="size-4" />
+              <GitHubIcon className="size-5" />
               Continue with GitHub
             </a>
-            <p className="text-center text-xs text-muted-foreground">
-              Scopes requested: <code>read:user</code>, <code>repo</code>
-            </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
@@ -97,13 +100,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-svh items-center justify-center">
-          <Spinner className="size-6" />
-        </div>
-      }
-    >
+    <Suspense fallback={<LoginLoading />}>
       <LoginContent />
     </Suspense>
   );

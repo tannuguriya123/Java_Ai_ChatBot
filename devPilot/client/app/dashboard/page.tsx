@@ -7,10 +7,7 @@ import { RepoDashboard } from "@/components/dashboard/repo-dashboard";
 export default function DashboardPage() {
   return (
     <RequireAuth>
-      <AppShell
-        title="Dashboard"
-        description="Connect, index, and chat with your GitHub repositories"
-      >
+      <AppShell hideHeader>
         <RepoDashboard />
       </AppShell>
     </RequireAuth>

@@ -3,6 +3,7 @@
 import { Bot, UserRound } from "lucide-react";
 import { useEffect, useRef } from "react";
 
+import { ChatMarkdown } from "@/components/chat/chat-markdown";
 import { CitationChips } from "@/components/chat/citation-chips";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bubble, BubbleContent } from "@/components/ui/bubble";
@@ -84,9 +85,16 @@ export function ChatMessages({
                   <Bubble
                     variant={isUser ? "default" : "muted"}
                     align={isUser ? "end" : "start"}
+                    className={cn(!isUser && "max-w-full")}
                   >
-                    <BubbleContent className="whitespace-pre-wrap">
-                      {message.content}
+                    <BubbleContent className={cn(!isUser && "w-full max-w-full px-4 py-3")}>
+                      {isUser ? (
+                        <span className="whitespace-pre-wrap">
+                          {message.content}
+                        </span>
+                      ) : (
+                        <ChatMarkdown content={message.content} />
+                      )}
                     </BubbleContent>
                   </Bubble>
                   {!isUser && message.citations?.length > 0 && (
@@ -109,9 +117,9 @@ export function ChatMessages({
                 </Avatar>
               </MessageAvatar>
               <MessageContent>
-                <Bubble variant="muted" align="start">
-                  <BubbleContent className="whitespace-pre-wrap">
-                    {streamText}
+                <Bubble variant="muted" align="start" className="max-w-full">
+                  <BubbleContent className="w-full max-w-full px-4 py-3">
+                    <ChatMarkdown content={streamText} isStreaming />
                     <span className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-foreground/50 align-middle" />
                   </BubbleContent>
                 </Bubble>

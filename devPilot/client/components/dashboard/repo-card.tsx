@@ -4,30 +4,29 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   ExternalLink,
+  GitBranch,
   Lock,
   MessageSquare,
+  RotateCcw,
   Sparkles,
 } from "lucide-react";
 
-import { IndexStatusBadge, RepoMeta } from "@/components/dashboard/repo-status";
+import { IndexErrorAlert } from "@/components/dashboard/index-error-alert";
+import { LanguageBadge } from "@/components/dashboard/language-badge";
+import { IndexStatusBadge } from "@/components/dashboard/repo-status";
+import { LanguageIcon } from "@/components/icons/language-icon";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/ui/spinner";
 import { getRepoProgress, useStartIndexing } from "@/hooks/use-repos";
 import type { Repository } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export function RepoCard({ repo }: { repo: Repository }) {
   const router = useRouter();
   const indexMutation = useStartIndexing();
   const isIndexing = repo.indexStatus === "INDEXING" || indexMutation.isPending;
+  const isFailed = repo.indexStatus === "FAILED";
   const progress = getRepoProgress(repo);
 
   function openChat() {
@@ -45,34 +44,76 @@ export function RepoCard({ repo }: { repo: Repository }) {
   }
 
   return (
-    <Card className="group transition-shadow hover:shadow-md">
-      <CardHeader className="border-b">
+    <article
+      className={cn(
+        "group flex flex-col overflow-hidden rounded-2xl border border-dashed bg-card/80 shadow-md shadow-foreground/5 transition-all",
+        isFailed
+          ? "border-destructive/30 bg-destructive/2 hover:border-destructive/40"
+          : "border-border/80 hover:-translate-y-0.5 hover:border-foreground/15 hover:shadow-lg hover:shadow-foreground/10"
+      )}
+    >
+      <div className="border-b border-dashed border-border/70 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <CardTitle className="truncate text-base">{repo.fullName}</CardTitle>
-            <CardDescription className="line-clamp-2 min-h-10">
-              {repo.description || "No description provided."}
-            </CardDescription>
+          <div className="flex min-w-0 items-start gap-3">
+            <LanguageBadge language={repo.language} showLabel={false} />
+            <div className="min-w-0">
+              <p className="truncate text-xs text-muted-foreground">{repo.owner}</p>
+              <h3 className="truncate font-medium">{repo.name}</h3>
+            </div>
           </div>
           <IndexStatusBadge status={repo.indexStatus} />
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="space-y-4 pt-4">
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        {!isFailed && (
+          <p className="line-clamp-2 min-h-10 text-sm text-muted-foreground">
+            {repo.description || "No description provided."}
+          </p>
+        )}
+
+        {isFailed && repo.description && (
+          <p className="line-clamp-1 text-sm text-muted-foreground">
+            {repo.description}
+          </p>
+        )}
+
         <div className="flex flex-wrap items-center gap-2">
           {repo.isPrivate && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
               <Lock className="size-3" />
               Private
             </span>
           )}
-          <RepoMeta repo={repo} />
+          <span className="inline-flex items-center gap-1 rounded-full border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
+            <GitBranch className="size-3" />
+            {repo.defaultBranch}
+          </span>
+          {repo.language && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed px-2 py-0.5 text-xs">
+              <LanguageIcon language={repo.language} size="sm" />
+              {repo.language}
+            </span>
+          )}
+          {repo.chunkCount > 0 && (
+            <span
+              className={cn(
+                "rounded-full border border-dashed px-2 py-0.5 text-xs",
+                isFailed
+                  ? "border-destructive/20 text-destructive/80"
+                  : "text-muted-foreground"
+              )}
+            >
+              {repo.chunkCount.toLocaleString()} chunks
+              {isFailed ? " indexed" : ""}
+            </span>
+          )}
         </div>
 
         {isIndexing && (
-          <div className="space-y-2">
+          <div className="space-y-2 rounded-xl border border-dashed bg-muted/30 p-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Indexing files…</span>
+              <span>Indexing…</span>
               <span>
                 {repo.filesProcessed}/{repo.filesTotal || "?"}
               </span>
@@ -81,21 +122,17 @@ export function RepoCard({ repo }: { repo: Repository }) {
           </div>
         )}
 
-        {repo.indexStatus === "FAILED" && repo.errorMessage && (
-          <p className="line-clamp-2 text-xs text-destructive">
-            {repo.errorMessage}
-          </p>
+        {isFailed && repo.errorMessage && (
+          <IndexErrorAlert message={repo.errorMessage} />
         )}
-      </CardContent>
+      </div>
 
-      <CardFooter className="justify-between gap-2 border-t">
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-dashed border-border/70 p-4">
         {repo.htmlUrl ? (
           <Button
             variant="ghost"
             size="sm"
-            render={
-              <a href={repo.htmlUrl} target="_blank" rel="noreferrer" />
-            }
+            render={<a href={repo.htmlUrl} target="_blank" rel="noreferrer" />}
           >
             <ExternalLink data-icon="inline-start" />
             GitHub
@@ -108,10 +145,16 @@ export function RepoCard({ repo }: { repo: Repository }) {
           {repo.indexStatus === "READY" && (
             <Button variant="secondary" size="sm" onClick={openChat}>
               <MessageSquare data-icon="inline-start" />
-              Open chat
+              Chat
             </Button>
           )}
-          <Button size="sm" disabled={isIndexing} onClick={handlePrimary}>
+          <Button
+            size="sm"
+            variant={isFailed ? "outline" : "default"}
+            className={cn(isFailed && "border-destructive/30 text-destructive hover:bg-destructive/10")}
+            disabled={isIndexing}
+            onClick={handlePrimary}
+          >
             {isIndexing ? (
               <>
                 <Spinner data-icon="inline-start" />
@@ -119,18 +162,23 @@ export function RepoCard({ repo }: { repo: Repository }) {
               </>
             ) : repo.indexStatus === "READY" ? (
               <>
-                Re-open
+                Open
                 <ArrowRight data-icon="inline-end" />
+              </>
+            ) : isFailed ? (
+              <>
+                <RotateCcw data-icon="inline-start" />
+                Retry
               </>
             ) : (
               <>
                 <Sparkles data-icon="inline-start" />
-                {repo.indexStatus === "FAILED" ? "Retry index" : "Index & chat"}
+                Index
               </>
             )}
           </Button>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </article>
   );
 }

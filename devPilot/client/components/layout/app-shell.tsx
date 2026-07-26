@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   FolderGit2,
-  LayoutDashboard,
   LogOut,
   MessageSquareCode,
+  Settings,
 } from "lucide-react";
 
 import { ModeToggle } from "@/components/ui/mode-toggle";
@@ -38,28 +38,27 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import {
+  dashboardNavGroups,
+  isDashboardNavActive,
+} from "@/lib/dashboard-nav";
 import { cn } from "@/lib/utils";
-
-const navItems = [
-  {
-    title: "Repositories",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-];
 
 export function AppShell({
   children,
   title,
   description,
   actions,
+  hideHeader = false,
 }: {
   children: React.ReactNode;
   title?: string;
   description?: string;
   actions?: React.ReactNode;
+  hideHeader?: boolean;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: user } = useCurrentUser();
   const logout = useLogout();
 
@@ -89,25 +88,31 @@ export function AppShell({
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {navItems.map((item) => (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith(item.href)}
-                      tooltip={item.title}
-                      render={<Link href={item.href} />}
-                    >
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+          {dashboardNavGroups.map((group) => (
+            <SidebarGroup key={group.label}>
+              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={isDashboardNavActive(
+                          pathname,
+                          item.href,
+                          item.exact
+                        )}
+                        tooltip={item.title}
+                        render={<Link href={item.href} />}
+                      >
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
 
         <SidebarFooter>
@@ -159,6 +164,11 @@ export function AppShell({
                     </DropdownMenuLabel>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+                    <Settings />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => logout.mutate()}
                     disabled={logout.isPending}
@@ -174,28 +184,30 @@ export function AppShell({
       </Sidebar>
 
       <SidebarInset>
-        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-            <div className="min-w-0">
-              {title && (
-                <h1 className="truncate font-heading text-sm font-medium">
-                  {title}
-                </h1>
-              )}
-              {description && (
-                <p className="truncate text-xs text-muted-foreground">
-                  {description}
-                </p>
-              )}
+        {!hideHeader && (
+          <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+              <div className="min-w-0">
+                {title && (
+                  <h1 className="truncate font-heading text-sm font-medium">
+                    {title}
+                  </h1>
+                )}
+                {description && (
+                  <p className="truncate text-xs text-muted-foreground">
+                    {description}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {actions}
+                <ModeToggle />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {actions}
-              <ModeToggle />
-            </div>
-          </div>
-        </header>
+          </header>
+        )}
         <div className="flex flex-1 flex-col">{children}</div>
       </SidebarInset>
     </SidebarProvider>

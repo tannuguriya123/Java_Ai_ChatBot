@@ -6,11 +6,35 @@ import { api, type Repository } from "@/lib/api";
 import { queryKeys } from "@/lib/query-keys";
 import { toast } from "@/components/ui/toast";
 
-export function useRepos(refresh = true) {
+const INDEXING_POLL_MS = 2000;
+
+function hasIndexingRepos(repos: Repository[] | undefined) {
+  return repos?.some((repo) => repo.indexStatus === "INDEXING") ?? false;
+}
+
+function updateRepoInListCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  repo: Repository
+) {
+  queryClient.setQueryData<Repository[]>(queryKeys.repos.list(), (current) => {
+    if (!current) return current;
+    return current.map((item) => (item.id === repo.id ? repo : item));
+  });
+}
+
+export function useRepos() {
   return useQuery({
-    queryKey: queryKeys.repos.list(refresh),
-    queryFn: () => api.listRepos(refresh),
+    queryKey: queryKeys.repos.list(),
+    queryFn: async () => {
+      const repos = await api.listRepos(false);
+      if (repos.length === 0) {
+        return api.listRepos(true);
+      }
+      return repos;
+    },
     staleTime: 30_000,
+    refetchInterval: (query) =>
+      hasIndexingRepos(query.state.data) ? INDEXING_POLL_MS : false,
   });
 }
 
@@ -20,7 +44,7 @@ export function useRepository(repoId: string) {
     queryFn: () => api.getRepo(repoId),
     enabled: Boolean(repoId),
     refetchInterval: (query) =>
-      query.state.data?.indexStatus === "INDEXING" ? 2000 : false,
+      query.state.data?.indexStatus === "INDEXING" ? INDEXING_POLL_MS : false,
   });
 }
 
@@ -41,7 +65,10 @@ export function useStartIndexing() {
     mutationFn: (repoId: string) => api.startIndex(repoId),
     onSuccess: (repo) => {
       queryClient.setQueryData(queryKeys.repos.detail(repo.id), repo);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.repos.all });
+      updateRepoInListCache(queryClient, repo);
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.repos.status(repo.id),
+      });
       toast.add({
         title: "Indexing started",
         description: `Indexing ${repo.fullName}…`,
@@ -62,21 +89,27 @@ export function useRefreshRepos() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => api.listRepos(true),
+    mutationFn: () =>
+      toast.promise(api.listRepos(true), {
+        loading: {
+          title: "Syncing repositories",
+          description: "Fetching the latest repos from GitHub…",
+          type: "loading",
+        },
+        success: (repos) => ({
+          title: "Sync successful",
+          description: `${repos.length} repositories loaded`,
+          type: "success",
+        }),
+        error: (error: Error) => ({
+          title: "Sync failed",
+          description:
+            error instanceof Error ? error.message : "Could not sync repositories",
+          type: "error",
+        }),
+      }),
     onSuccess: (repos) => {
-      queryClient.setQueryData(queryKeys.repos.list(true), repos);
-      toast.add({
-        title: "Repositories refreshed",
-        description: `${repos.length} repositories loaded`,
-        type: "success",
-      });
-    },
-    onError: (error: Error) => {
-      toast.add({
-        title: "Refresh failed",
-        description: error.message,
-        type: "error",
-      });
+      queryClient.setQueryData(queryKeys.repos.list(), repos);
     },
   });
 }
