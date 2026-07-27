@@ -7,6 +7,9 @@ import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
+/**
+ * Filters which repository files are worth indexing (skips node_modules, lock files, binaries, etc.).
+ */
 @Component
 public class CodeFileFilter {
 

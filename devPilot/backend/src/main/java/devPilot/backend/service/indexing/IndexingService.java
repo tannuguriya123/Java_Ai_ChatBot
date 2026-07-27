@@ -16,20 +16,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 import devPilot.backend.entity.IndexStatus;
 import devPilot.backend.entity.Repository;
-import devPilot.backend.entity.User;
 import devPilot.backend.exception.BadRequestException;
 import devPilot.backend.exception.NotFoundException;
 import devPilot.backend.repository.RepositoryRepository;
 import devPilot.backend.service.UserService;
+import devPilot.backend.service.ai.RagSettings;
 import devPilot.backend.service.github.GitHubApiClient;
 import devPilot.backend.service.github.GitHubRateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Indexes a GitHub repo for RAG: list files → chunk → embed → store in pgvector.
+ *
+ * <p>See also {@link CodeFileFilter} (which files) and {@link CodeChunker} (how to split them).
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class IndexingService {
+
+    private static final int VECTOR_BATCH_SIZE = 32;
+    private static final int PROGRESS_EVERY_N_FILES = 5;
 
     private final RepositoryRepository repositoryRepository;
     private final UserService userService;
@@ -73,47 +81,28 @@ public class IndexingService {
     private void doIndex(UUID repoId, UUID userId) {
         Repository repo = repositoryRepository.findById(repoId)
                 .orElseThrow(() -> new NotFoundException("Repository not found"));
-        User user = userService.requireById(userId);
-        String token = userService.decryptAccessToken(user);
+        String token = userService.decryptAccessToken(userService.requireById(userId));
 
         deleteExistingVectors(repoId.toString());
 
         Map<String, Object> tree = gitHubApiClient.getRepoTree(
                 token, repo.getOwner(), repo.getName(), repo.getDefaultBranch());
+        List<String> filePaths = listIndexableFiles(tree);
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> entries = tree != null
-                ? (List<Map<String, Object>>) tree.get("tree")
-                : List.of();
+        updateProgress(repoId, filePaths.size(), 0, 0, IndexStatus.INDEXING, null);
 
-        List<Map<String, Object>> eligible = new ArrayList<>();
-        for (Map<String, Object> entry : entries) {
-            if (!"blob".equals(String.valueOf(entry.get("type")))) {
-                continue;
-            }
-            String path = String.valueOf(entry.get("path"));
-            long size = entry.get("size") instanceof Number n ? n.longValue() : 0L;
-            if (fileFilter.isEligible(path, size, maxFileBytes)) {
-                eligible.add(entry);
-            }
-        }
-
-        updateProgress(repoId, eligible.size(), 0, 0, IndexStatus.INDEXING, null);
-
+        List<Document> batch = new ArrayList<>();
         int processed = 0;
         int totalChunks = 0;
-        List<Document> batch = new ArrayList<>();
 
-        for (Map<String, Object> entry : eligible) {
-            String path = String.valueOf(entry.get("path"));
+        for (String path : filePaths) {
             try {
                 String content = gitHubApiClient.getFileContent(
                         token, repo.getOwner(), repo.getName(), path);
                 List<Document> chunks = codeChunker.chunkFile(repoId.toString(), path, content);
                 batch.addAll(chunks);
                 totalChunks += chunks.size();
-
-                if (batch.size() >= 32) {
+                if (batch.size() >= VECTOR_BATCH_SIZE) {
                     vectorStore.add(batch);
                     batch.clear();
                 }
@@ -122,11 +111,9 @@ public class IndexingService {
             }
 
             processed++;
-            if (processed % 5 == 0 || processed == eligible.size()) {
-                updateProgress(repoId, eligible.size(), processed, totalChunks, IndexStatus.INDEXING, null);
+            if (processed % PROGRESS_EVERY_N_FILES == 0 || processed == filePaths.size()) {
+                updateProgress(repoId, filePaths.size(), processed, totalChunks, IndexStatus.INDEXING, null);
             }
-
-            // Gentle rate limiting for GitHub API
             rateLimiter.pause();
         }
 
@@ -134,22 +121,32 @@ public class IndexingService {
             vectorStore.add(batch);
         }
 
-        Repository ready = repositoryRepository.findById(repoId).orElseThrow();
-        ready.setIndexStatus(IndexStatus.READY);
-        ready.setFilesTotal(eligible.size());
-        ready.setFilesProcessed(processed);
-        ready.setChunkCount(totalChunks);
-        ready.setIndexedAt(Instant.now());
-        ready.setErrorMessage(null);
-        ready.setUpdatedAt(Instant.now());
-        repositoryRepository.save(ready);
-        log.info("Indexed {} files ({} chunks) for {}", processed, totalChunks, ready.getFullName());
+        markReady(repoId, filePaths.size(), processed, totalChunks, repo.getFullName());
+    }
+
+    /** GitHub tree API → paths of source files we want to embed. */
+    @SuppressWarnings("unchecked")
+    private List<String> listIndexableFiles(Map<String, Object> tree) {
+        if (tree == null || tree.get("tree") == null) {
+            return List.of();
+        }
+
+        List<Map<String, Object>> entries = (List<Map<String, Object>>) tree.get("tree");
+        return entries.stream()
+                .filter(entry -> "blob".equals(String.valueOf(entry.get("type"))))
+                .filter(entry -> {
+                    String path = String.valueOf(entry.get("path"));
+                    long size = entry.get("size") instanceof Number n ? n.longValue() : 0L;
+                    return fileFilter.isEligible(path, size, maxFileBytes);
+                })
+                .map(entry -> String.valueOf(entry.get("path")))
+                .toList();
     }
 
     private void deleteExistingVectors(String repoId) {
         try {
-            FilterExpressionBuilder b = new FilterExpressionBuilder();
-            vectorStore.delete(b.eq("repoId", repoId).build());
+            var filter = new FilterExpressionBuilder().eq(RagSettings.METADATA_REPO_ID, repoId).build();
+            vectorStore.delete(filter);
         } catch (Exception ex) {
             log.warn("Could not delete existing vectors for repo {}: {}", repoId, ex.getMessage());
         }
@@ -172,6 +169,21 @@ public class IndexingService {
             repo.setUpdatedAt(Instant.now());
             repositoryRepository.save(repo);
         });
+    }
+
+    @Transactional
+    protected void markReady(UUID repoId, int totalFiles, int processedFiles, int totalChunks, String fullName) {
+        repositoryRepository.findById(repoId).ifPresent(repo -> {
+            repo.setIndexStatus(IndexStatus.READY);
+            repo.setFilesTotal(totalFiles);
+            repo.setFilesProcessed(processedFiles);
+            repo.setChunkCount(totalChunks);
+            repo.setIndexedAt(Instant.now());
+            repo.setErrorMessage(null);
+            repo.setUpdatedAt(Instant.now());
+            repositoryRepository.save(repo);
+        });
+        log.info("Indexed {} files ({} chunks) for {}", processedFiles, totalChunks, fullName);
     }
 
     @Transactional

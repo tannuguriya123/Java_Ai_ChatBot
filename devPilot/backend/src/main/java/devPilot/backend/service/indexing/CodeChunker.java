@@ -1,101 +1,73 @@
 package devPilot.backend.service.indexing;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import org.springframework.ai.document.Document;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import devPilot.backend.service.ai.RagSettings;
+
+/**
+ * Splits a source file into embedding-sized chunks using Spring AI's {@link TokenTextSplitter}.
+ */
 @Component
 public class CodeChunker {
 
-    private final int chunkSize;
-    private final int chunkOverlap;
+    private final TokenTextSplitter splitter;
     private final CodeFileFilter fileFilter;
 
     public CodeChunker(
             @Value("${app.indexing.chunk-size:800}") int chunkSize,
-            @Value("${app.indexing.chunk-overlap:100}") int chunkOverlap,
             CodeFileFilter fileFilter) {
-        this.chunkSize = Math.max(200, chunkSize);
-        this.chunkOverlap = Math.max(0, Math.min(chunkOverlap, this.chunkSize / 2));
+        // Spring AI splits by tokens; ~4 characters per token is a reasonable default for code.
+        int chunkTokens = Math.max(50, chunkSize / 4);
+
+        this.splitter = TokenTextSplitter.builder()
+                .withChunkSize(chunkTokens)
+                .build();
         this.fileFilter = fileFilter;
     }
 
     public List<Document> chunkFile(String repoId, String filePath, String content) {
-        List<Document> documents = new ArrayList<>();
         if (content == null || content.isBlank()) {
-            return documents;
+            return List.of();
         }
 
-        String[] lines = content.split("\n", -1);
         String language = fileFilter.detectLanguage(filePath);
-        int chunkIndex = 0;
-        int startLine = 1;
-        StringBuilder buffer = new StringBuilder();
+        String header = "// File: " + filePath + "\n";
 
-        for (int i = 0; i < lines.length; i++) {
-            String line = lines[i];
-            if (buffer.length() + line.length() + 1 > chunkSize && buffer.length() > 0) {
-                documents.add(toDocument(repoId, filePath, language, chunkIndex++, startLine, i, buffer.toString()));
-                String overlapText = takeOverlap(buffer.toString());
-                buffer.setLength(0);
-                buffer.append(overlapText);
-                if (!overlapText.isEmpty() && !overlapText.endsWith("\n")) {
-                    buffer.append('\n');
-                }
-                startLine = Math.max(1, i + 1 - countLines(overlapText));
-            }
-            buffer.append(line).append('\n');
-        }
+        Document source = new Document(header + content, baseMetadata(repoId, filePath, language));
+        List<Document> split = splitter.apply(List.of(source));
 
-        if (buffer.length() > 0) {
-            documents.add(toDocument(
-                    repoId, filePath, language, chunkIndex, startLine, lines.length, buffer.toString().trim()));
-        }
-        return documents;
+        return IntStream.range(0, split.size())
+                .mapToObj(i -> withChunkIndex(split.get(i), repoId, filePath, language, i))
+                .toList();
     }
 
-    private Document toDocument(
+    private static Map<String, Object> baseMetadata(String repoId, String filePath, String language) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put(RagSettings.METADATA_REPO_ID, repoId);
+        metadata.put("filePath", filePath);
+        metadata.put("language", language);
+        return metadata;
+    }
+
+    private static Document withChunkIndex(
+            Document chunk,
             String repoId,
             String filePath,
             String language,
-            int chunkIndex,
-            int startLine,
-            int endLine,
-            String text) {
-        Map<String, Object> metadata = new HashMap<>();
-        metadata.put("repoId", repoId);
+            int chunkIndex) {
+        Map<String, Object> metadata = new HashMap<>(chunk.getMetadata());
+        metadata.put(RagSettings.METADATA_REPO_ID, repoId);
         metadata.put("filePath", filePath);
         metadata.put("language", language);
         metadata.put("chunkIndex", chunkIndex);
-        metadata.put("startLine", startLine);
-        metadata.put("endLine", Math.max(startLine, endLine));
-
-        String prefixed = "// File: " + filePath + " (lines " + startLine + "-" + endLine + ")\n" + text;
-        return new Document(prefixed, metadata);
-    }
-
-    private String takeOverlap(String text) {
-        if (chunkOverlap <= 0 || text.length() <= chunkOverlap) {
-            return text;
-        }
-        return text.substring(text.length() - chunkOverlap);
-    }
-
-    private int countLines(String text) {
-        if (text == null || text.isEmpty()) {
-            return 0;
-        }
-        int count = 1;
-        for (int i = 0; i < text.length(); i++) {
-            if (text.charAt(i) == '\n') {
-                count++;
-            }
-        }
-        return count;
+        return new Document(chunk.getText(), metadata);
     }
 }
