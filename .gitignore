@@ -7,3 +7,4 @@
 
 # Local Spring overrides
 devPilot/backend/src/main/resources/application-local.properties
+demo
