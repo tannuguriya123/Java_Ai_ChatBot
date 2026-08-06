@@ -254,4 +254,4 @@ Wait for indexing to finish (`indexStatus: READY`) before creating a chat sessio
 
 ## License
 
-This project is for educational purposes. Add your license here.
+This project is for educational purposes.
