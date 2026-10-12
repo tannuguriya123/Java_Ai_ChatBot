@@ -31,7 +31,7 @@ cd lovable-clone
 docker compose up -d
 ```
 
-This starts PostgreSQL on `localhost:5432` with:
+This starts PostgreSQL on `localhost:5436` with:
 - Database: `lovable`
 - Username: `postgres`
 - Password: `postgres`
@@ -44,7 +44,7 @@ Create environment variables (PowerShell example):
 
 ```powershell
 $env:OPENAI_API_KEY="sk-your-openai-key"
-$env:DATABASE_URL="jdbc:postgresql://localhost:5432/lovable"
+$env:DATABASE_URL="jdbc:postgresql://localhost:5436/lovable"
 $env:DATABASE_USERNAME="postgres"
 $env:DATABASE_PASSWORD="postgres"
 $env:CORS_ALLOWED_ORIGINS="http://localhost:5173"

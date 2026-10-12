@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Inter, DM_Sans, Outfit } from "next/font/google";
 
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -8,7 +8,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import QueryProvider from "@/components/providers/query-provider";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const outfitHeading = Outfit({subsets:['latin'],variable:'--font-heading'});
+
+const dmSans = DM_Sans({subsets:['latin'],variable:'--font-sans'});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,13 +41,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={cn(
-        "h-full",
-        "antialiased",
-        geistSans.variable,
-        geistMono.variable,
-        "font-sans",
-        inter.variable
-      )}
+              "h-full",
+              "antialiased",
+              geistSans.variable,
+              geistMono.variable
+            , "font-sans", dmSans.variable, outfitHeading.variable)}
       suppressHydrationWarning
     >
       <body className="flex min-h-svh flex-col">

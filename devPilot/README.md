@@ -6,7 +6,7 @@ DevPilot is a full-stack **RAG (Retrieval-Augmented Generation) codebase assista
 
 - **GitHub OAuth login** — sign in with GitHub; access tokens stored encrypted
 - **Repository sync** — fetch and persist your GitHub repos
-- **Async code indexing** — chunk source files, embed with OpenAI, store in pgvector
+- **Async code indexing** — chunk source files, embed with Gemini, store in pgvector
 - **RAG chat** — ask questions about your repo with context-aware answers
 - **SSE streaming** — token-by-token responses in the chat UI
 - **Citations** — answers link back to relevant source files
@@ -22,7 +22,7 @@ DevPilot is a full-stack **RAG (Retrieval-Augmented Generation) codebase assista
                                              │
                          ┌───────────────────┼───────────────────┐
                          ▼                   ▼                   ▼
-                   PostgreSQL            pgvector             OpenAI
+                   PostgreSQL            pgvector              Gemini
                    (app data)         (embeddings)      (chat + embeddings)
 ```
 
@@ -30,25 +30,25 @@ DevPilot is a full-stack **RAG (Retrieval-Augmented Generation) codebase assista
 
 1. **Index** — fetch repo files from GitHub → chunk → embed → store in pgvector
 2. **Retrieve** — embed the user's question → similarity search for top-K code chunks
-3. **Generate** — build prompts with retrieved context → stream OpenAI reply
+3. **Generate** — build prompts with retrieved context → stream Gemini reply
 
 ## Tech stack
 
 | Layer | Technologies |
 |---|---|
 | Frontend | Next.js 16, React 19, TanStack Query, Tailwind CSS 4, shadcn/ui, Streamdown |
-| Backend | Spring Boot 4.1, Java 17, Spring Security OAuth2, Spring AI 2.0 |
+| Backend | Spring Boot 4.1, Java 25, Spring Security OAuth2, Spring AI 2.0 |
 | Database | PostgreSQL 16 + pgvector (Docker) |
 | Migrations | Flyway |
-| AI | OpenAI `gpt-4o-mini` (chat), `text-embedding-3-small` (embeddings) |
+| AI | Gemini `gemini-3.8-flash` (chat), `gemini-embedding-001` (embeddings) |
 
 ## Prerequisites
 
-- **Java 17+**
+- **Java 25+**
 - **Node.js 20+**
 - **Docker Desktop** (for PostgreSQL)
 - **GitHub account** + OAuth App
-- **OpenAI API key**
+- **Google Gemini API key** ([create one](https://aistudio.google.com/app/apikey))
 
 ## Project structure
 
@@ -75,7 +75,7 @@ Postgres runs on **host port `5433`** with database `devpilot`.
 Verify:
 
 ```bash
-docker exec devpilot-postgres psql -U postgres -d devpilot -c "SELECT 1;"
+docker compose exec postgres psql -U postgres -d devpilot -c "SELECT 1;"
 ```
 
 ### 2. Create a GitHub OAuth App
@@ -91,30 +91,25 @@ Note the **Client ID** and **Client Secret**.
 
 ### 3. Configure the backend
 
-Create `backend/src/main/resources/application-local.properties` (this file is gitignored):
+Copy `backend/.env.example` to `backend/.env` (this file is gitignored) and fill in your credentials:
 
-```properties
-OPENAI_API_KEY=sk-your-openai-key
+```env
+GEMINI_API_KEY=your-gemini-api-key
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
-Or set environment variables instead:
+Alternatively, set these as environment variables. Never commit API keys or OAuth secrets.
 
 ```bash
-export OPENAI_API_KEY=sk-your-openai-key
+export GEMINI_API_KEY=your-gemini-api-key
 export GITHUB_CLIENT_ID=your-github-client-id
 export GITHUB_CLIENT_SECRET=your-github-client-secret
 ```
 
 ### 4. Configure the frontend
 
-```bash
-cd client
-cp .env.local.example .env.local
-```
-
-`.env.local`:
+Create `client/.env.local`:
 
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8080
@@ -158,7 +153,7 @@ Frontend starts at **http://localhost:3000**.
 | `DB_URL` | `jdbc:postgresql://localhost:5433/devpilot` | Postgres JDBC URL |
 | `DB_USERNAME` | `postgres` | Database user |
 | `DB_PASSWORD` | `postgres` | Database password |
-| `OPENAI_API_KEY` | — | OpenAI API key (required) |
+| `GEMINI_API_KEY` | — | Google Gemini API key (required for chat and indexing) |
 | `GITHUB_CLIENT_ID` | — | GitHub OAuth client ID |
 | `GITHUB_CLIENT_SECRET` | — | GitHub OAuth client secret |
 | `FRONTEND_URL` | `http://localhost:3000` | OAuth redirect target |
@@ -214,6 +209,7 @@ cd backend
 - Schema migrations live in `backend/src/main/resources/db/migration/`
 - JPA uses `ddl-auto=validate` — Flyway owns the schema
 - Vector store table is auto-created by Spring AI pgvector
+- Gemini embeddings use a separate `gemini_vector_store` table (768 dimensions); existing OpenAI vectors are left untouched. Re-index repositories to populate Gemini embeddings.
 
 ### Frontend
 

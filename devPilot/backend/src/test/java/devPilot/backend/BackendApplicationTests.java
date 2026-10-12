@@ -6,7 +6,7 @@ class BackendApplicationTests {
 
 	@Test
 	void placeholder() {
-		// Full @SpringBootTest requires Postgres, OAuth secrets, and OpenAI key.
+		// Full @SpringBootTest requires Postgres, OAuth secrets, and a Gemini API key.
 	}
 
 }

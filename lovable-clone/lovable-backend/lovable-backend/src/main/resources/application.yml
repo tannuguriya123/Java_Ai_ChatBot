@@ -2,7 +2,7 @@ spring:
   application:
     name: lovable-backend
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/lovable}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5436/lovable}
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
   jpa:

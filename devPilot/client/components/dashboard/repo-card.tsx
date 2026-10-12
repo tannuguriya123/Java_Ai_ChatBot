@@ -130,6 +130,7 @@ export function RepoCard({ repo }: { repo: Repository }) {
       <div className="mt-auto flex items-center justify-between gap-2 border-t border-dashed border-border/70 p-4">
         {repo.htmlUrl ? (
           <Button
+            nativeButton={false}
             variant="ghost"
             size="sm"
             render={<a href={repo.htmlUrl} target="_blank" rel="noreferrer" />}

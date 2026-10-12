@@ -1,7 +1,6 @@
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: devpilot-postgres
     environment:
       POSTGRES_DB: devpilot
       POSTGRES_USER: postgres

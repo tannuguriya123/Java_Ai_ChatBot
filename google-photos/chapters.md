@@ -7,7 +7,7 @@ Here’s a **recording outline** for the Google Photos clone — chapter by chap
 **Stack at a glance:** Spring Boot 4.1 + JWT + PostgreSQL/Flyway + ImageKit | Next.js 16 + React Query + Zustand + shadcn
 
 **Run order (demo setup):**
-1. `docker compose up -d` → Postgres on `5433`
+1. `docker compose up -d` → Postgres on `5434`
 2. Backend: `./mvnw spring-boot:run` → `:8080`
 3. Frontend: `cd frontend && npm run dev` → `:3000`
 
@@ -22,7 +22,7 @@ Here’s a **recording outline** for the Google Photos clone — chapter by chap
 |------|-------------|
 | Root tree | Backend at root, UI in `frontend/` |
 | `pom.xml` | Spring Boot 4.1, Java 17, JPA, Security, Flyway, JWT, ImageKit |
-| `docker-compose.yml` | Postgres 16, DB `google_photos`, port 5433 |
+| `docker-compose.yml` | Postgres 16, DB `google_photos`, port 5434 |
 | `frontend/package.json` | Next 16, React Query, Zustand, Zod, shadcn |
 | `application.properties` | Port, DB, JWT TTLs, CORS, multipart 20MB, ImageKit keys |
 | `frontend/.env.local.example` | `NEXT_PUBLIC_API_URL=http://localhost:8080/api` |
@@ -300,4 +300,3 @@ photos ──? photos (parent_photo_id for AI results)
 
 ### Frontend hooks
 `use-auth` · `use-photos` · `use-albums` · `use-library` · `use-ai`
-
